@@ -1,0 +1,223 @@
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+</style>
+<div id="tetris-container" style="align-items: center; display: flex; flex-direction: column;">
+  <canvas height="640" id="gameBoard" style="border: 1px solid #fff; margin-bottom: 20px;" width="320"></canvas>
+  <div id="instructions" style="color: black; max-width: 400px; text-align: left;">
+    <p>How to play:</p>
+    <ul>
+      <li>Arrow Up: Rotate Tetromino</li>
+      <li>Arrow Down: Move Tetromino down</li>
+      <li>Arrow Left: Move Tetromino left</li>
+      <li>Arrow Right: Move Tetromino right</li>
+    </ul>
+    <p>The game will end after 5 minutes. <br /></p>
+    <p>This game was developed using ChatGPT as my co-pilot. <br />Thank you, ChatGPT 05/08/2023</p>
+  </div>
+</div>
+  
+<p id="score">Score: 0</p>
+
+<script>
+    const canvas = document.getElementById('gameBoard');
+    const ctx = canvas.getContext('2d');
+    const scale = 20;
+    const rows = canvas.height / scale;
+    const columns = canvas.width / scale;
+    const gameOverTime = 5*60 * 1000; // 5*60 seconds in milliseconds
+    let score = 0;
+
+    
+    class Tetromino {
+      constructor() {
+        this.shapes = [
+          [[1, 1, 1], [1]],
+          [[1, 1, 1], [0, 0, 1]],
+          [[1, 1], [1, 1]],
+          [[1, 1, 0], [0, 1, 1]],
+          [[0, 1, 1], [1, 1]],
+          [[1, 1, 1, 1]],
+          [[0, 1, 0], [1, 1, 1]]
+        ];
+        this.current = this.newTetromino();
+        this.pos = { x: 5, y: 0 };
+      }
+
+      newTetromino() {
+        return this.shapes[Math.floor(Math.random() * this.shapes.length)];
+      }
+
+      move(x, y) {
+        this.pos.x += x;
+        this.pos.y += y;
+
+        if (this.checkCollision()) {
+          this.pos.x -= x;
+          this.pos.y -= y;
+          return false;
+        }
+        return true;
+      }
+
+      rotate() {
+        const current = JSON.parse(JSON.stringify(this.current));
+        this.current = this.current[0].map((_, i) => this.current.map(row => row[i])).reverse();
+
+        if (this.checkCollision()) {
+          this.current = current;
+          return false;
+        }
+        return true;
+      }
+
+      checkCollision() {
+        for (let y = 0; y < this.current.length; y++) {
+          for (let x = 0; x < this.current[y].length; x++) {
+            if (this.current[y][x] &&
+                (board[this.pos.y + y] === undefined || board[this.pos.y + y][this.pos.x + x] === undefined || board[this.pos.y + y][this.pos.x + x])) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+    }
+
+    const tetromino = new Tetromino();
+    const board = Array.from({ length: rows }, () => Array(columns).fill(0));
+
+    function draw() {
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < board.length; y++) {
+        for (let x = 0; x < board[y].length; x++) {
+          if (board[y][x]) {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x * scale, y * scale, scale, scale);
+              ctx.strokeStyle = '#222';
+              ctx.strokeRect(x * scale, y * scale, scale, scale);
+              }
+        }
+      }
+   for (let y = 0; y < tetromino.current.length; y++) {
+    for (let x = 0; x < tetromino.current[y].length; x++) {
+      if (tetromino.current[y][x]) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect((tetromino.pos.x + x) * scale, (tetromino.pos.y + y) * scale, scale, scale);
+        ctx.strokeStyle = '#222';
+        ctx.strokeRect((tetromino.pos.x + x) * scale, (tetromino.pos.y + y) * scale, scale, scale);
+      }
+    }
+  }
+ document.getElementById('score').textContent = 'Score: ' + score;
+}
+
+function mergeTetromino() {
+  for (let y = 0; y < tetromino.current.length; y++) {
+    for (let x = 0; x < tetromino.current[y].length; x++) {
+      if (tetromino.current[y][x]) {
+        board[tetromino.pos.y + y][tetromino.pos.x + x] = 1;
+      }
+    }
+  }
+}
+
+function clearFullRows() {
+  outer: for (let y = board.length - 1; y >= 0; y--) {
+    for (let x = 0; x < board[y].length; x++) {
+      if (!board[y][x]) {
+        continue outer;
+      }
+    }
+
+    const row = board.splice(y, 1)[0].fill(0);
+    board.unshift(row);
+    
+    score +=100;
+  }
+}
+    
+function update() {
+  if (tetromino.move(0, 1)) {
+    setTimeout(update, 500);
+  } else {
+    mergeTetromino();
+    clearFullRows();
+    tetromino.current = tetromino.newTetromino();
+    tetromino.pos.y = 0;
+    tetromino.pos.x = Math.floor(columns / 2) - Math.floor(tetromino.current[0].length / 2);
+
+    if (tetromino.checkCollision()) {
+      // Game over condition
+      clearTimeout(gameTimer);
+      alert('Game Over!');
+    } else {
+      setTimeout(update, 250);
+    }
+  }
+  draw();
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowUp') {
+    tetromino.rotate();
+  } else if (event.key === 'ArrowDown') {
+    tetromino.move(0, 1);
+  } else if (event.key === 'ArrowLeft') {
+    tetromino.move(-1, 0);
+  } else if (event.key === 'ArrowRight') {
+    tetromino.move(1, 0);
+  }
+  draw();
+});
+
+let touchStartX = 0;
+let touchStartY = 0;
+
+canvas.addEventListener('touchstart', function(e) {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, false);
+
+canvas.addEventListener('touchend', function(e) {
+  let touchEndX = e.changedTouches[0].clientX;
+  let touchEndY = e.changedTouches[0].clientY;
+  handleTouch(touchStartX, touchStartY, touchEndX, touchEndY);
+}, false);
+
+    function handleTouch(startX, startY, endX, endY) {
+  let diffX = endX - startX;
+  let diffY = endY - startY;
+
+  if (Math.abs(diffX) > Math.abs(diffY)) {
+    // Horizontal swipe: Move Tetromino left or right
+    if (diffX > 0) {
+      tetromino.move(1, 0);  // Move right
+    } else {
+      tetromino.move(-1, 0);  // Move left
+    }
+  } else if (Math.abs(diffY) > 30) {  // Ignore small vertical swipes
+    // Vertical swipe: Move Tetromino down
+    tetromino.move(0, 1);
+  }
+
+  // Redraw the game
+  draw();
+}
+
+canvas.addEventListener('click', function() {
+  tetromino.rotate();
+  draw();
+}, false);
+    
+    
+const gameTimer = setTimeout(() => {
+  alert('Time\'s up! Game Over.');
+}, gameOverTime);
+
+update();
+</script>
